@@ -1,0 +1,24 @@
+images {
+  image: "/assets/images/buttonSquare_blue.png"
+}
+images {
+  image: "/assets/images/buttonSquare_blue_pressed.png"
+}
+images {
+  image: "/assets/images/buttonSquare_darkblue_pressed.png"
+}
+images {
+  image: "/assets/images/buttonSquare_lightblue_pressed.png"
+}
+images {
+  image: "/assets/images/buttonSquare_lightblue.png"
+}
+images {
+  image: "/assets/images/buttonLong_blue.png"
+}
+images {
+  image: "/assets/images/buttonSquare_grey_pressed.png"
+}
+margin: 0
+extrude_borders: 2
+inner_padding: 0

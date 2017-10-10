@@ -1,0 +1,297 @@
+local WIDTH = 6
+local HEIGHT = 6
+
+local DIRECTIONS = {
+	{ x = -1, y = -1 },
+	{ x = -1, y =  0 },
+	{ x = -1, y =  1 },
+	
+	{ x =  1, y = -1 },
+	{ x =  1, y =  0 },
+	{ x =  1, y =  1 },
+	
+	{ x =  0, y = -1 },
+	{ x =  0, y =  0 },
+	{ x =  0, y =  1 },
+}
+
+local LEVELS = {
+	{ -- level 1
+		{0, 0, 0, 0, 0, 0},
+		{3, 2, 3, 2, 2, 2},
+		{0, 0, 2, 3, 2, 2},
+		{2, 0, 2, 2, 0, 0},
+		{0, 2, 3, 0, 2, 2},
+		{2, 3, 0, 2, 0, 4}
+	},
+	{ -- level 2
+		{0, 2, 3, 3, 2, 1},
+		{2, 0, 3, 3, 0, 2},
+		{1, 4, 3, 3, 0, 1},
+		{1, 4, 3, 3, 0, 1},
+		{2, 0, 3, 3, 0, 2},
+		{0, 2, 3, 3, 2, 1}
+	},
+	{ -- level 3
+		{0, 2, 2, 2, 0, 2},
+		{1, 1, 1, 1, 1, 1},
+		{1, 3, 0, 3, 3, 1},
+		{1, 3, 3, 3, 3, 1},
+		{1, 1, 1, 1, 1, 1},
+		{4, 4, 0, 4, 0, 1}
+	},
+	{ -- level 4
+		{3, 4, 2, 2, 0, 2},
+		{1, 1, 1, 1, 1, 1},
+		{0, 1, 3, 0, 3, 1},
+		{1, 3, 1, 3, 1, 1},
+		{1, 1, 1, 1, 1, 1},
+		{3, 0, 0, 4, 0, 1}
+	},
+	{ -- level 5
+		{4, 2, 1, 2, 1, 4},
+		{1, 2, 1, 1, 2, 1},
+		{1, 3, 2, 3, 3, 1},
+		{1, 1, 2, 2, 3, 1},
+		{1, 0, 1, 1, 2, 1},
+		{4, 0, 0, 4, 1, 4}
+	},
+	{ -- level 6
+		{3, 2, 1, 1, 2, 1},
+		{1, 2, 1, 0, 2, 2},
+		{2, 1, 1, 1, 2, 1},
+		{1, 2, 1, 1, 2, 1},
+		{0, 2, 1, 1, 2, 4},
+		{3, 0, 0, 4, 0, 4}
+	},
+	{ -- level 7
+		{2, 0, 2, 3, 0, 2},
+		{0, 2, 1, 3, 2, 1},
+		{2, 0, 1, 3, 0, 2},
+		{0, 2, 3, 3, 2, 1},
+		{2, 0, 1, 3, 0, 2},
+		{0, 2, 0, 3, 2, 1}
+	},
+	{ -- level 8
+		{1, 3, 0, 1, 1, 2},
+		{0, 4, 0, 0, 2, 3},
+		{3, 1, 0, 0, 3, 1},
+		{1, 2, 0, 0, 1, 2},
+		{4, 3, 1, 0, 4, 3},
+		{2, 4, 1, 1, 2, 4}
+	},
+	{ -- level 9
+		{4, 1, 0, 0, 2, 4},
+		{2, 4, 2, 4, 1, 0},
+		{0, 0, 2, 0, 4, 2},
+		{1, 1, 0, 0, 4, 2},
+		{2, 4, 1, 4, 0, 1},
+		{3, 0, 4, 1, 0, 4}
+	},
+	{ -- level 10
+		{3, 2, 2, 0, 2, 0},
+		{2, 3, 2, 3, 2, 0},
+		{0, 1, 3, 1, 2, 2},
+		{1, 1, 0, 0, 0, 1},
+		{2, 2, 1, 3, 3, 1},
+		{3, 2, 1, 1, 2, 2}
+	}
+}
+
+local function play_animation(id, animation)
+	msg.post(msg.url(nil, id, "sprite"), "play_animation", { id = animation })
+end
+
+-- update the visual representation of the cell based on its state
+local function update_cell(cell, pressed)
+	if cell.number and cell.number > 0 then
+		label.set_text(msg.url(nil, cell.square_id, "label"), cell.number)
+		if pressed then
+			play_animation(cell.square_id, hash("buttonSquare_lightblue"))
+		elseif cell.locked then
+			play_animation(cell.square_id, hash("buttonSquare_darkblue_pressed"))
+		else
+			play_animation(cell.square_id, hash("buttonSquare_blue"))
+		end
+	else
+		label.set_text(msg.url(nil, cell.square_id, "label"), "")
+		play_animation(cell.square_id, hash("buttonSquare_darkblue_pressed"))
+	end
+end
+
+-- find a cell on the map based on the game object id of the square
+local function find_cell(board, square_id)
+	for x=1,WIDTH do
+		for y=1,HEIGHT do
+			local cell = board[x][y]
+			if cell.square_id == square_id then
+				return cell
+			end
+		end
+	end
+end
+
+-- find empty target cells at the correct distance from a specific cell
+-- containing a number
+local function find_targets(board, cell)
+	local targets = {}
+	for _,dir in pairs(DIRECTIONS) do
+		local tx = cell.x + cell.number * dir.x
+		local ty = cell.y + cell.number * dir.y
+		if tx > 0 and tx <= WIDTH and ty > 0 and ty <= HEIGHT then
+			local target = board[tx][ty]
+			if not target.number then
+				table.insert(targets, target)
+			end
+		end
+	end
+	return targets
+end
+
+-- highlight target cells
+local function highlight_targets(board, cell)
+	local targets = find_targets(board, cell)
+	for _,target in ipairs(targets) do
+		play_animation(target.square_id, hash("buttonSquare_grey_pressed"))
+	end
+end
+
+-- reset target cells
+local function reset_targets(board, cell)
+	local targets = find_targets(board, cell)
+	for _,target in ipairs(targets) do
+		play_animation(target.square_id, hash("buttonSquare_darkblue_pressed"))
+	end
+end
+
+local function random(max, fillrate)
+	if math.random() > fillrate then return max + 1 end
+	local n = 1
+	for i=1,max-1 do
+		n = n + math.random(0, 1)
+	end
+	return n
+end
+
+local function new_level(self, level, additional_delay)
+	self.level = level
+	self.board = {}
+	self.numbers_left = 0
+	for x=1,WIDTH do
+		self.board[x] = {}
+		for y=1,HEIGHT do
+			local cell = { x = x, y = y, locked = false }
+			self.board[x][y] = cell
+
+			-- create the square and let it fall down to it's position
+			local duration = 1
+			local delay = math.random(1,10) * 0.05 + x * 0.05 + y * 0.1 + (additional_delay or 0)
+			local to = vmath.vector3(140 + x * 48, 360 + y * 48, 1 - y / 10)
+			cell.square_id = factory.create("#squarefactory", to + vmath.vector3(0, 1000, 0))
+			go.animate(cell.square_id, "position", go.PLAYBACK_ONCE_FORWARD, to, go.EASING_OUTBOUNCE, duration, delay)
+
+			-- possibly assign a number
+			local number = random(4, 0.6)
+			if level <= #LEVELS then
+				number = LEVELS[level][x][y]
+			end
+			if number > 0 and number <= 4 then
+				cell.number = number
+				self.numbers_left = self.numbers_left + 1
+			end
+			update_cell(cell, false)
+
+		end
+	end
+end
+
+local function end_level(board)
+	local down = vmath.vector3(0, 1000, 0)
+	for x=1,WIDTH do
+		for y=1,HEIGHT do
+			local cell = board[x][y]
+			local duration = 0.5
+			local delay = math.random(1,10) * 0.05 + x * 0.05 + y * 0.1
+			local to = go.get_position(cell.square_id) - down
+			go.animate(cell.square_id, "position", go.PLAYBACK_ONCE_FORWARD, to, go.EASING_INQUAD, duration, delay, function()
+				go.delete(cell.square_id)
+			end)
+		end
+	end
+end
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+	msg.post("@render:", "clear_color", { color = vmath.vector4(0.15, 0.15, 0.15, 1.0) })
+	math.randomseed(os.time())
+	new_level(self, 1)
+end
+
+function on_message(self, message_id, message, sender)
+	-- keep track of which cell we're currently pointing at
+	if message_id == hash("trigger_response") then
+		if message.enter then
+			self.over_id = message.other_id
+		elseif self.over_id == message.other_id then
+			self.over_id = nil
+		end
+	elseif message_id == hash("restart") then
+		end_level(self.board)
+		new_level(self, self.level, 2)
+	end
+end
+
+function on_input(self, action_id, action)
+	-- move the cursor
+	go.set_position(vmath.vector3(action.x, action.y, 0))
+
+	-- handle clicks
+	if action_id == hash("touch") and action.released then
+		-- get which cell we clicked on
+		local current = find_cell(self.board, self.over_id)
+		if self.selected_id then
+			-- get the cell that the user has selected to move
+			local selected = find_cell(self.board, self.selected_id)
+			
+			-- deselect if clicking on the same as the selected cell
+			if selected == current then
+				reset_targets(self.board, selected)
+				update_cell(selected, false)
+				self.selected_id = nil
+			-- deselect and select a new one
+			elseif current.number then
+				reset_targets(self.board, selected)
+				update_cell(selected, false)
+				self.selected_id = self.over_id
+				update_cell(current, true)
+				highlight_targets(self.board, current)
+			-- try to move the selected cell to the one we clicked on
+			else
+				local targets = find_targets(self.board, selected)
+				for _,target in ipairs(targets) do
+					if target == current then
+						reset_targets(self.board, selected)
+						self.selected_id = nil
+						target.number = selected.number
+						target.locked = true
+						selected.number = nil
+						go.set_position(go.get_position(target.square_id), target.number_id)
+						update_cell(selected, false)
+						update_cell(target, false)
+						self.numbers_left = self.numbers_left - 1
+						if self.numbers_left == 0 then
+							end_level(self.board)
+							new_level(self, self.level + 1, 2)
+						end
+						break
+					end
+				end
+			end
+		-- clicked on a non-locked cell with a number
+		elseif self.over_id and not current.locked and current.number then
+			self.selected_id = self.over_id
+			update_cell(current, true)
+			highlight_targets(self.board, current)
+		end
+	end
+end
