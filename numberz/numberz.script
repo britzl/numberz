@@ -259,7 +259,7 @@ function on_input(self, action_id, action)
 				update_cell(selected, false)
 				self.selected_id = nil
 			-- deselect and select a new one
-			elseif current.number then
+			elseif not current.locked and current.number then
 				reset_targets(self.board, selected)
 				update_cell(selected, false)
 				self.selected_id = self.over_id
